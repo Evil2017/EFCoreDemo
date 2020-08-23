@@ -1,0 +1,32 @@
+﻿
+@{
+    ViewData["Title"] = "Student Body Statistics";
+}
+
+@model IEnumerable<WebMvc.Models.SchoolViewModels.EnrollmentDateGroup>
+
+
+<h2>学生数据分析</h2>
+
+<table>
+    <tr>
+        <th>
+            入学时间
+        </th>
+        <th>
+            学生数量
+        </th>
+    </tr>
+
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>
+                @Html.DisplayFor(modelItem => item.EnrollmentDate)
+            </td>
+            <td>
+                @item.StudentCount
+            </td>
+        </tr>
+    }
+</table>

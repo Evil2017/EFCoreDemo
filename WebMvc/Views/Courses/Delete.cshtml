@@ -1,0 +1,46 @@
+﻿@model WebMvc.Models.Course
+
+@{
+    ViewData["Title"] = "Delete";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h1>删除</h1>
+
+<h3>你确定要删除吗?</h3>
+<div>
+    <h4>课程</h4>
+    <hr />
+    <dl class="row">
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.CourseID)
+        </dt>
+        <dd class="col-sm-10">
+            @Html.DisplayFor(model => model.CourseID)
+        </dd>
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.Title)
+        </dt>
+        <dd class="col-sm-10">
+            @Html.DisplayFor(model => model.Title)
+        </dd>
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.Credits)
+        </dt>
+        <dd class="col-sm-10">
+            @Html.DisplayFor(model => model.Credits)
+        </dd>
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.Department)
+        </dt>
+        <dd class="col-sm-10">
+            @Html.DisplayFor(model => model.Department.Name)
+        </dd>
+    </dl>
+    
+    <form asp-action="Delete">
+        <input type="hidden" asp-for="CourseID" />
+        <input type="submit" value="删除" class="btn btn-danger" /> |
+        <a asp-action="Index">返回上级</a>
+    </form>
+</div>
