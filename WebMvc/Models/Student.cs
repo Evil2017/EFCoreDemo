@@ -9,6 +9,8 @@ namespace WebMvc.Models
     [Table("Student")]
     public class Student
     {
+        private ICollection<Enrollment> enrollments;
+
         [DisplayName("主键")]
         [Description("主键")]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
@@ -54,9 +56,16 @@ namespace WebMvc.Models
         /// <summary>
         /// 入学登记
         /// </summary>
-
-        [Display(Name = "入学登记")] 
-        public ICollection<Enrollment> Enrollments { get; set; }
+        private ICollection<Enrollment> _enrollments;
+        [Display(Name = "入学登记")]
+        public ICollection<Enrollment> Enrollments
+        {
+            get
+            {
+                return _enrollments ?? (_enrollments = new List<Enrollment>());
+            }
+            set { _enrollments = value; }
+        }
         #endregion
     }
 }
