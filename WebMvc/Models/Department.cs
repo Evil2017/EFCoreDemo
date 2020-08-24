@@ -34,7 +34,10 @@ namespace WebMvc.Models
         public int? InstructorID { get; set; }
         [Display(Name = "领导")]
         public Instructor Administrator { get; set; }
-
+        [Display(Name = "跟踪属性")]
+        [Column(TypeName = "RowVersion")]
+        [Timestamp]
+        public byte[] RowVersion { get; set; }
         #region 导航属性
         [Display(Name = "课程")]
         public ICollection<Course> Courses { get; set; }
