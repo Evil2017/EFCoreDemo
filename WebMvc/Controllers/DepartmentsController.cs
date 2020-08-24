@@ -1,10 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
+using System.Threading.Tasks;
 using WebMvc.Data;
 using WebMvc.Models;
 
@@ -77,7 +75,11 @@ namespace WebMvc.Controllers
                 return NotFound();
             }
 
-            var department = await _context.Departments.FindAsync(id);
+            //var department = await _context.Departments.FindAsync(id);
+            var department = await _context.Departments
+                .Include(i => i.Administrator)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(m => m.DepartmentID == id);
             if (department == null)
             {
                 return NotFound();
@@ -91,39 +93,82 @@ namespace WebMvc.Controllers
         // more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("DepartmentID,Name,Budget,StartDate,InstructorID,RowVersion")] Department department)
+        public async Task<IActionResult> Edit(int? id, byte[] rowVersion)
         {
-            if (id != department.DepartmentID)
+            if (id == null)
             {
                 return NotFound();
             }
 
-            if (ModelState.IsValid)
+            var departmentToUpdate = await _context.Departments
+                .Include(i => i.Administrator)
+                .FirstOrDefaultAsync(m => m.DepartmentID == id);
+
+            if (departmentToUpdate == null)
+            {
+                Department deletedDepartment = new Department();
+                await TryUpdateModelAsync(deletedDepartment);
+                ModelState.AddModelError(string.Empty,
+                    "无法保存更新，该院系已被其他用户删除");
+                ViewData["InstructorID"] = new SelectList(_context.Instructors, "ID", "FullName", deletedDepartment.InstructorID);
+                return View(deletedDepartment);
+            }
+
+            _context.Entry(departmentToUpdate).Property("RowVersion").OriginalValue = rowVersion;
+
+            if (await TryUpdateModelAsync<Department>(departmentToUpdate, "", s => s.Name, s => s.StartDate, s => s.Budget, s => s.InstructorID))
             {
                 try
                 {
-                    _context.Update(department);
                     await _context.SaveChangesAsync();
+                    return RedirectToAction(nameof(Index));
                 }
-                catch (DbUpdateConcurrencyException)
+                catch (DbUpdateConcurrencyException ex)
                 {
-                    if (!DepartmentExists(department.DepartmentID))
+                    var exceptionEntry = ex.Entries.Single();
+                    var clientValues = (Department)exceptionEntry.Entity;
+                    var databaseEntry = exceptionEntry.GetDatabaseValues();
+                    if (databaseEntry == null)
                     {
-                        return NotFound();
+                        ModelState.AddModelError(string.Empty, "无法保存更新，该院系已被其他用户删除");
                     }
                     else
                     {
-                        throw;
+                        var databaseValues = (Department)databaseEntry.ToObject();
+
+                        if (databaseValues.Name != clientValues.Name)
+                        {
+                            ModelState.AddModelError("Name", $"当前值: {databaseValues.Name}");
+                        }
+                        if (databaseValues.Budget != clientValues.Budget)
+                        {
+                            ModelState.AddModelError("Budget", $"当前值: {databaseValues.Budget:c}");
+                        }
+                        if (databaseValues.StartDate != clientValues.StartDate)
+                        {
+                            ModelState.AddModelError("StartDate", $"当前值: {databaseValues.StartDate:d}");
+                        }
+                        if (databaseValues.InstructorID != clientValues.InstructorID)
+                        {
+                            Instructor databaseInstructor = await _context.Instructors.FirstOrDefaultAsync(i => i.ID == databaseValues.InstructorID);
+                            ModelState.AddModelError("InstructorID", $"当前值: {databaseInstructor?.FullName}");
+                        }
+
+                        ModelState.AddModelError(string.Empty, "您尝试更新的记录 "
+                                + "在您从数据库取值之后，某一个用户对其进行更改. 本次更新操作 "
+                                + "已经取消，数据库中的值已在页面显示"
+                                + "如果你仍然想保存，请再点击一次保存按钮");
+                        departmentToUpdate.RowVersion = (byte[])databaseValues.RowVersion;
+                        ModelState.Remove("RowVersion");
                     }
                 }
-                return RedirectToAction(nameof(Index));
             }
-            ViewData["InstructorID"] = new SelectList(_context.Instructors, "ID", "FirstMidName", department.InstructorID);
-            return View(department);
+            ViewData["InstructorID"] = new SelectList(_context.Instructors, "ID", "FullName", departmentToUpdate.InstructorID);
+            return View(departmentToUpdate);
         }
 
         // GET: Departments/Delete/5
-        public async Task<IActionResult> Delete(int? id)
+        public async Task<IActionResult> Delete(int? id, bool? concurrencyError)
         {
             if (id == null)
             {
@@ -132,24 +177,46 @@ namespace WebMvc.Controllers
 
             var department = await _context.Departments
                 .Include(d => d.Administrator)
+                  .AsNoTracking()
                 .FirstOrDefaultAsync(m => m.DepartmentID == id);
             if (department == null)
             {
+                if (concurrencyError.GetValueOrDefault())
+                {
+                    return RedirectToAction(nameof(Index));
+                }
                 return NotFound();
             }
-
+            if (concurrencyError.GetValueOrDefault())
+            {
+                ViewData["ConcurrencyErrorMessage"] = "尝试删除的记录 "
+                    + "在您取值之后其他用户对其进行了修改. "
+                    + "删除操作已经取消，在数据库中的值已经显示在页面。"
+                    + "如果您仍然要删除该记录，"
+                    + "请再次点击删除按钮。否则点击返回上一级返回上一页。";
+            }
             return View(department);
         }
 
         // POST: Departments/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteConfirmed(int id)
+        public async Task<IActionResult> Delete(Department department)
         {
-            var department = await _context.Departments.FindAsync(id);
-            _context.Departments.Remove(department);
-            await _context.SaveChangesAsync();
-            return RedirectToAction(nameof(Index));
+            try
+            {
+                if (await _context.Departments.AnyAsync(m => m.DepartmentID == department.DepartmentID))
+                {
+                    _context.Departments.Remove(department);
+                    await _context.SaveChangesAsync();
+                }
+                return RedirectToAction(nameof(Index));
+            }
+            catch (DbUpdateConcurrencyException /* ex */)
+            {
+                //Log the error (uncomment ex variable name and write a log.)
+                return RedirectToAction(nameof(Delete), new { concurrencyError = true, id = department.DepartmentID });
+            }
         }
 
         private bool DepartmentExists(int id)

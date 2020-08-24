@@ -6,6 +6,7 @@
 
 <h1>删除</h1>
 
+<p class="text-danger">@ViewData["ConcurrencyErrorMessage"]</p>
 <h3>您确定要删除吗？</h3>
 <div>
     <h4>院系</h4>
@@ -33,7 +34,7 @@
             @Html.DisplayNameFor(model => model.Administrator)
         </dt>
         <dd class="col-sm-10">
-            @Html.DisplayFor(model => model.Administrator.FirstMidName)
+            @Html.DisplayFor(model => model.Administrator.FullName)
         </dd>
         <dt class="col-sm-2">
             @Html.DisplayNameFor(model => model.RowVersion)
@@ -45,7 +46,10 @@
 
     <form asp-action="Delete">
         <input type="hidden" asp-for="DepartmentID" />
-        <input type="submit" value="删除" class="btn btn-danger" /> |
-        <a asp-action="Index">返回上一级</a>
+        <input type="hidden" asp-for="RowVersion" />
+        <div class="form-actions no-color">
+            <input type="submit" value="删除" class="btn btn-danger" /> |
+            <a asp-action="Index">返回上一级</a>
+        </div>
     </form>
 </div>
